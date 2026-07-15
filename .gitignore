@@ -1,0 +1,19 @@
+# Entornos y caché
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.env
+venv/
+.venv/
+
+# Datos pesados: solo se sube la muestra de data_sample/
+*.csv
+src/data/*
+!src/data/.gitkeep
+!src/data/README.md
+!src/data_sample/
+!src/data_sample/*.csv
+
+# Modelos pesados
+src/models/*.pkl
+src/models/*.joblib
