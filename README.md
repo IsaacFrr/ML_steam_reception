@@ -45,9 +45,24 @@ Lógica reutilizable en `src/utils/preprocessing.py`:
   - flags binarios: passthrough.
 - Resultado: **18 features → ~33 columnas** codificadas, sin nulos y con las numéricas centradas.
 
+## Modelado y resultados (`main.ipynb`)
+Pipeline de scikit-learn (`preprocesado + clasificador`) para no filtrar información en la CV:
+- **Split** train/test 80/20 estratificado (24.496 / 6.124 juegos, 18 features).
+- **Comparativa por validación cruzada (5-fold, ROC-AUC):** Dummy (0.50) < Regresión Logística
+  (0.70) < Random Forest (0.75) < **HistGradientBoosting (0.76)**.
+- **Optimización** del ganador con `GridSearchCV` (`learning_rate=0.1`, `max_iter=300`).
+- **Evaluación final en test:** **ROC-AUC = 0.774**, **F1 = 0.868**. Matriz de confusión, curva ROC
+  e importancia por permutación en `src/img/`.
+- Variables más influyentes: tiempo de juego medio, precio, nº de idiomas, `es_f2p` y el género.
+- El modelo entrenado (Pipeline completo) se guarda en `src/models/modelo_recepcion.joblib`.
+
+> El modelo predice la recepción usando **solo datos independientes de las reseñas** (sin fuga). El
+> techo de rendimiento lo limita la señal disponible: la acogida real depende también de calidad,
+> marketing y momento de lanzamiento, no capturados por el dataset.
+
 ## Estructura del repositorio
 ```
-├── main.ipynb              # Notebook final del pipeline de ML (pendiente)
+├── main.ipynb              # Pipeline final: comparativa, GridSearch, evaluación y guardado
 ├── src/
 │   ├── data/               # Datos pesados (no versionados)
 │   ├── data_sample/        # Muestra ligera del dataset
@@ -73,7 +88,7 @@ Lógica reutilizable en `src/utils/preprocessing.py`:
 - [x] Definición del problema y del dataset
 - [x] EDA dirigido al modelado
 - [x] Preprocesado y feature encoding
-- [ ] Modelado, optimización y evaluación
+- [x] Modelado, optimización y evaluación (HistGB · ROC-AUC test 0.774)
 - [ ] Presentación y vídeo
 
 ## Autor
