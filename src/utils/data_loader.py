@@ -159,3 +159,32 @@ def resumen_calidad(df):
             for c in df.columns
         ],
     })
+
+
+def build_dataset(path=None, cache_path=None, use_cache=True, verbose=True):
+    """
+    Devuelve el dataset listo para modelar (limpio + features + target).
+
+    Cachea el resultado en parquet: la primera ejecucion parsea el CSV (~10 s) y
+    las siguientes cargan el cache (<1 s). El cache esta gitignoreado y se puede
+    borrar sin riesgo; si no existe, se reconstruye desde el CSV.
+    """
+    base = Path(path) if path else DEFAULT_DATA_PATH
+    cache = Path(cache_path) if cache_path else base.parent / "_cache_dataset.parquet"
+
+    if use_cache and cache.exists():
+        df = pd.read_parquet(cache)
+        if verbose:
+            print(f"Dataset cargado de cache: {cache.name}  ({len(df):,} juegos)")
+        return df
+
+    df = add_target(add_features(clean_steam(load_raw(base))))
+    if use_cache:
+        try:
+            df.to_parquet(cache, index=False)
+            if verbose:
+                print(f"Dataset construido desde CSV y cacheado en {cache.name}")
+        except Exception as e:  # pyarrow ausente u otro problema: seguimos sin cache
+            if verbose:
+                print("No se pudo cachear:", e)
+    return df

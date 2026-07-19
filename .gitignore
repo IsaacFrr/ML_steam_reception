@@ -17,3 +17,6 @@ src/data/*
 # Modelos pesados
 src/models/*.pkl
 src/models/*.joblib
+
+# cache de datos preparado (se regenera solo)
+src/data/_cache_dataset.parquet
