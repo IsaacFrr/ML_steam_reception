@@ -6,7 +6,7 @@ Proyecto de Machine Learning (Project Break II — The Bridge, Data Science).
 Modelo de **clasificación supervisada** que predice si un videojuego tendrá una
 **recepción positiva** del público a partir de sus características de lanzamiento.
 
-**Resultado:** ROC-AUC **0.775** y F1 **0.869** en test (baseline: 0.50), sin usar
+**Resultado:** ROC-AUC **0.776** y F1 **0.869** en test (baseline: 0.50), sin usar
 ninguna variable derivada de las reseñas.
 
 ## Problema de negocio
@@ -46,8 +46,8 @@ las reseñas (precio, género, idiomas, plataformas, logros, playtime, antigüed
 | **HistGradientBoosting** (elegido) | **0.76** |
 
 Optimización con `RandomizedSearchCV` sobre un espacio de **720 combinaciones** (12 muestreadas ×
-3 folds) y validación del ganador con 5 folds → **ROC-AUC test 0.775 · F1 test 0.869**.
-La ganancia frente al modelo por defecto es de solo +0.0005: el rendimiento lo limita la **señal
+3 folds) y validación del ganador con 5 folds → **ROC-AUC test 0.776 · F1 test 0.869**.
+La ganancia frente al modelo por defecto es de solo +0.0004: el rendimiento lo limita la **señal
 disponible**, no los hiperparámetros.
 
 Variables más influyentes: tiempo de juego medio, precio, nº de idiomas, `es_f2p` y género
@@ -60,7 +60,7 @@ Variables más influyentes: tiempo de juego medio, precio, nº de idiomas, `es_f
 ├── src/
 │   ├── data/               # Datos pesados (no versionados) + caché parquet
 │   ├── data_sample/        # Muestra ligera del dataset
-│   ├── img/                # Figuras generadas (01-09)
+│   ├── img/                # Figuras generadas (01-10)
 │   ├── models/             # Modelo entrenado (no versionado, se regenera)
 │   ├── notebooks/
 │   │   ├── 01_eda.ipynb            # EDA extendido dirigido al modelado
@@ -82,7 +82,7 @@ Variables más influyentes: tiempo de juego medio, precio, nº de idiomas, `es_f
 - [x] Definición del problema y del dataset
 - [x] EDA dirigido al modelado
 - [x] Preprocesado y feature encoding
-- [x] Modelado, optimización y evaluación (HistGB · ROC-AUC test 0.775)
+- [x] Modelado, optimización y evaluación (HistGB · ROC-AUC test 0.776)
 - [x] Presentación y documento soporte
 
 ## Autor
@@ -96,7 +96,7 @@ Machine Learning project (Project Break II — The Bridge, Data Science).
 A **supervised classification** model that predicts whether a video game will be
 **positively received** by players, based on its launch characteristics.
 
-**Result:** **0.775 ROC-AUC** and **0.869 F1** on the test set (baseline: 0.50), without using
+**Result:** **0.776 ROC-AUC** and **0.869 F1** on the test set (baseline: 0.50), without using
 any review-derived feature.
 
 ## Business problem
@@ -131,8 +131,8 @@ reviews.
 | **HistGradientBoosting** (selected) | **0.76** |
 
 Tuned with `RandomizedSearchCV` over a **720-combination** space (12 sampled × 3 folds), then
-validated with 5 folds → **test ROC-AUC 0.775 · test F1 0.869**. The gain over the default model is
-only +0.0005: performance is capped by the **available signal**, not by hyperparameters.
+validated with 5 folds → **test ROC-AUC 0.776 · test F1 0.869**. The gain over the default model is
+only +0.0004: performance is capped by the **available signal**, not by hyperparameters.
 
 Most influential features: average playtime, price, number of languages, free-to-play flag and genre
 (permutation importance + partial dependence curves).
