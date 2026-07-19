@@ -1,95 +1,146 @@
 # ML — Predicción de la recepción de videojuegos en Steam
 
+> 🇪🇸 Español (abajo) · 🇬🇧 [English version](#english-version)
+
 Proyecto de Machine Learning (Project Break II — The Bridge, Data Science).
 Modelo de **clasificación supervisada** que predice si un videojuego tendrá una
 **recepción positiva** del público a partir de sus características de lanzamiento.
 
+**Resultado:** ROC-AUC **0.775** y F1 **0.869** en test (baseline: 0.50), sin usar
+ninguna variable derivada de las reseñas.
+
 ## Problema de negocio
-Un estudio o distribuidor quiere estimar, **antes de lanzar** un juego, la
-probabilidad de que tenga buena acogida, para ajustar precio, género, plataformas
-e idiomas. El modelo aprende de +122.000 juegos ya publicados en Steam.
+Lanzar un videojuego cuesta años y dinero, y la señal de si ha gustado —las reseñas—
+llega *después* del lanzamiento. Un estudio o distribuidor quiere estimar **antes de
+lanzar** la probabilidad de buena acogida, para ajustar precio, género, plataformas e
+idiomas. El modelo aprende de +122.000 juegos ya publicados en Steam.
 
 ## Dataset
-- **Steam Games Dataset** (FronkonGames) — datos de la Steam Web API + SteamSpy.
-- **122.611 registros × 39 columnas**. Licencia MIT.
+- **Steam Games Dataset** (FronkonGames) — Steam Web API + SteamSpy. Licencia MIT.
+- **122.611 registros × 39 columnas**.
 - Fuente: https://www.kaggle.com/datasets/fronkongames/steam-games-dataset
   (alternativa sin login: https://huggingface.co/datasets/FronkonGames/steam-games-dataset)
 - Los CSV pesados no se versionan (ver `.gitignore`); en `src/data_sample/` hay una muestra.
 
-> Nota: el CSV original tiene un bug de cabecera (junta `Discount` y `DLC count` en un solo nombre).
-> `src/utils/data_loader.py` lo repara automáticamente al cargar.
+> **Bug del dataset:** la cabecera del CSV junta `Discount` y `DLC count` en un solo nombre,
+> lo que desplaza todas las columnas siguientes. `src/utils/data_loader.py` lo repara al cargar.
 
-## Objetivo y variable objetivo
-- **Target:** `recepcion_positiva` — 1 si el **% de reseñas positivas ≥ 70 %**, 0 en caso contrario.
+## Variable objetivo
+- **Target:** `recepcion_positiva` = 1 si el **% de reseñas positivas ≥ 70 %**, 0 en caso contrario.
 - **Población:** solo juegos con **≥ 50 reseñas** (para que el % sea fiable) → **30.620 juegos**.
-- **Tipo:** clasificación binaria. **Clases desbalanceadas ~75/25** → métrica **F1 / ROC-AUC**
-  (no accuracy).
+- **Tipo:** clasificación binaria. **Clases desbalanceadas ~75/25** → métrica **ROC-AUC / F1**
+  (nunca accuracy).
 
-## EDA (`src/notebooks/01_eda.ipynb`)
-EDA dirigido al modelado. Hallazgos principales:
-- **Balance:** 75 % de los juegos son "bien recibidos" → desbalance a tratar en el modelo.
-- **⚠️ Fuga de información:** se excluyen como features `Positive`, `Negative`, `pct_positivas`,
-  `User score` y `Recommendations`, porque derivan de las mismas reseñas que definen el target.
-- **Modelo de negocio:** los juegos de **pago** (76 %) se reciben mejor que los **F2P** (69 %).
-- **Género:** hay señal clara (Adventure ~81 %, Action ~73 %).
-- Relaciones feature→target y correlaciones en `src/img/`.
+## Prevención de fuga de información
+El target se calcula con las reseñas, así que se **excluyen del modelo** todas las variables
+derivadas de ellas: `Positive`, `Negative`, `total_reviews`, `pct_positivas`, `User score` y
+`Recommendations`. El modelo solo usa información conocida **antes o independientemente** de
+las reseñas (precio, género, idiomas, plataformas, logros, playtime, antigüedad…).
 
-## Preprocesado y encoding (`src/notebooks/02_preprocessing.ipynb`)
-Lógica reutilizable en `src/utils/preprocessing.py`:
-- **Selección de features sin fuga** y separación `X` / `y` (`get_X_y`).
-- **Split train/test 80/20 estratificado** por el target.
-- **`ColumnTransformer`** (`build_preprocessor`), ajustado **solo con train**:
-  - numéricas de cola larga (precio, playtime, Peak CCU, …): imputar mediana → `log1p` → escalar;
-  - resto de numéricas: imputar mediana → escalar;
-  - `genero_principal`: imputar → One-Hot (agrupa categorías raras, `min_frequency=50`);
-  - flags binarios: passthrough.
-- Resultado: **18 features → ~33 columnas** codificadas, sin nulos y con las numéricas centradas.
+## Resultados
+| Modelo | ROC-AUC (CV 5-fold) |
+|---|---|
+| Dummy (baseline) | 0.50 |
+| Regresión Logística | 0.70 |
+| Random Forest | 0.75 |
+| **HistGradientBoosting** (elegido) | **0.76** |
 
-## Modelado y resultados (`main.ipynb`)
-Pipeline de scikit-learn (`preprocesado + clasificador`) para no filtrar información en la CV:
-- **Split** train/test 80/20 estratificado (24.496 / 6.124 juegos, 18 features).
-- **Comparativa por validación cruzada (5-fold, ROC-AUC):** Dummy (0.50) < Regresión Logística
-  (0.70) < Random Forest (0.75) < **HistGradientBoosting (0.76)**.
-- **Optimización** del ganador con `GridSearchCV` (`learning_rate=0.1`, `max_iter=300`).
-- **Evaluación final en test:** **ROC-AUC = 0.774**, **F1 = 0.868**. Matriz de confusión, curva ROC
-  e importancia por permutación en `src/img/`.
-- Variables más influyentes: tiempo de juego medio, precio, nº de idiomas, `es_f2p` y el género.
-- El modelo entrenado (Pipeline completo) se guarda en `src/models/modelo_recepcion.joblib`.
+Optimización con `RandomizedSearchCV` sobre un espacio de **720 combinaciones** (12 muestreadas ×
+3 folds) y validación del ganador con 5 folds → **ROC-AUC test 0.775 · F1 test 0.869**.
+La ganancia frente al modelo por defecto es de solo +0.0005: el rendimiento lo limita la **señal
+disponible**, no los hiperparámetros.
 
-> El modelo predice la recepción usando **solo datos independientes de las reseñas** (sin fuga). El
-> techo de rendimiento lo limita la señal disponible: la acogida real depende también de calidad,
-> marketing y momento de lanzamiento, no capturados por el dataset.
+Variables más influyentes: tiempo de juego medio, precio, nº de idiomas, `es_f2p` y género
+(importancia por permutación + curvas de dependencia parcial).
 
 ## Estructura del repositorio
 ```
-├── main.ipynb              # Pipeline final: comparativa, GridSearch, evaluación y guardado
+├── main.ipynb              # Notebook principal: EDA, preprocesado, modelado y evaluación
+├── Presentacion.pptx/.pdf  # Presentación y documento soporte
 ├── src/
-│   ├── data/               # Datos pesados (no versionados)
+│   ├── data/               # Datos pesados (no versionados) + caché parquet
 │   ├── data_sample/        # Muestra ligera del dataset
-│   ├── img/                # Figuras del EDA
-│   ├── models/             # Modelos guardados (pickle/joblib)
+│   ├── img/                # Figuras generadas (01-09)
+│   ├── models/             # Modelo entrenado (no versionado, se regenera)
 │   ├── notebooks/
-│   │   ├── 01_eda.ipynb            # EDA dirigido al modelado
+│   │   ├── 01_eda.ipynb            # EDA extendido dirigido al modelado
 │   │   └── 02_preprocessing.ipynb  # Preprocesado y feature encoding
 │   └── utils/
-│       ├── data_loader.py          # carga, limpieza, features y target
+│       ├── data_loader.py          # carga, limpieza, features, target y caché
 │       └── preprocessing.py        # split y ColumnTransformer
-├── Presentacion.pdf        # Documento soporte (pendiente)
 ├── requirements.txt
 └── README.md
 ```
 
 ## Reproducción
 1. Descarga `games.csv` del enlace de arriba y colócalo en `src/data/games.csv`.
-2. Crea el entorno e instala dependencias: `pip install -r requirements.txt`.
-3. Ejecuta los notebooks de `src/notebooks/` en orden y, finalmente, `main.ipynb`.
+2. Instala dependencias: `pip install -r requirements.txt`.
+3. Ejecuta `main.ipynb` de principio a fin (los notebooks de `src/notebooks/` amplían EDA y
+   preprocesado). La primera ejecución cachea el dataset preparado; las siguientes son inmediatas.
 
 ## Estado
 - [x] Definición del problema y del dataset
 - [x] EDA dirigido al modelado
 - [x] Preprocesado y feature encoding
-- [x] Modelado, optimización y evaluación (HistGB · ROC-AUC test 0.774)
-- [ ] Presentación y vídeo
+- [x] Modelado, optimización y evaluación (HistGB · ROC-AUC test 0.775)
+- [x] Presentación y documento soporte
 
 ## Autor
-- Isaac Frías — [GitHub](https://github.com/IsaacFrr)
+Isaac Frías — [GitHub](https://github.com/IsaacFrr)
+
+---
+
+# English version
+
+Machine Learning project (Project Break II — The Bridge, Data Science).
+A **supervised classification** model that predicts whether a video game will be
+**positively received** by players, based on its launch characteristics.
+
+**Result:** **0.775 ROC-AUC** and **0.869 F1** on the test set (baseline: 0.50), without using
+any review-derived feature.
+
+## Business problem
+Shipping a game takes years and money, and the signal of whether players liked it — the reviews —
+only arrives *after* launch. A studio or publisher wants to estimate the probability of a good
+reception **before launching**, in order to tune price, genre, platforms and languages. The model
+learns from 122,000+ games already published on Steam.
+
+## Dataset
+- **Steam Games Dataset** (FronkonGames) — Steam Web API + SteamSpy. MIT license.
+- **122,611 rows × 39 columns**. Heavy CSVs are not versioned; a sample lives in `src/data_sample/`.
+- **Known bug:** the CSV header merges `Discount` and `DLC count` into a single name, shifting every
+  following column. `src/utils/data_loader.py` repairs it on load.
+
+## Target variable
+- `recepcion_positiva` = 1 if the **share of positive reviews is ≥ 70 %**, else 0.
+- **Population:** games with **≥ 50 reviews** only (so the ratio is reliable) → **30,620 games**.
+- Binary classification with **imbalanced classes (~75/25)** → **ROC-AUC / F1**, never accuracy.
+
+## Data leakage prevention
+The target is computed from the reviews, so every review-derived variable is **excluded** from the
+feature set: `Positive`, `Negative`, `total_reviews`, `pct_positivas`, `User score` and
+`Recommendations`. The model only sees information available **before or independently of** the
+reviews.
+
+## Results
+| Model | ROC-AUC (5-fold CV) |
+|---|---|
+| Dummy (baseline) | 0.50 |
+| Logistic Regression | 0.70 |
+| Random Forest | 0.75 |
+| **HistGradientBoosting** (selected) | **0.76** |
+
+Tuned with `RandomizedSearchCV` over a **720-combination** space (12 sampled × 3 folds), then
+validated with 5 folds → **test ROC-AUC 0.775 · test F1 0.869**. The gain over the default model is
+only +0.0005: performance is capped by the **available signal**, not by hyperparameters.
+
+Most influential features: average playtime, price, number of languages, free-to-play flag and genre
+(permutation importance + partial dependence curves).
+
+## Reproduction
+1. Download `games.csv` and place it at `src/data/games.csv`.
+2. Install dependencies: `pip install -r requirements.txt`.
+3. Run `main.ipynb` end to end. The first run caches the prepared dataset; later runs are instant.
+
+## Author
+Isaac Frías — [GitHub](https://github.com/IsaacFrr)
